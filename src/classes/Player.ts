@@ -9,11 +9,6 @@ export class Player extends THREE.Group {
     private readonly direction: THREE.Vector3;
     private readonly destination: THREE.Vector3;
 
-    private speed = 0; // m/s
-    private maxSpeed = 2.75;
-    private accelerationSpeed = 1.5; // m/s/s
-    private decelerationSpeed = 2.5; // m/s/s
-
     private arrowHelper: THREE.ArrowHelper;
 
     constructor(private readonly assetManager: AssetManager) {
@@ -153,6 +148,7 @@ export class Player extends THREE.Group {
 
         // Find the priority anim
         const priorityAnim = anims.reduce((a, b) => (a.weight > b.weight ? a : b));
+        priorityAnim.setEffectiveTimeScale(1);
         const priorityClipDuration = priorityAnim.getClip().duration;
 
         // Force the other anims to match their lengths to this one
@@ -161,6 +157,8 @@ export class Player extends THREE.Group {
 
             const scaledDuration = action.getClip().duration / priorityClipDuration;
             action.setEffectiveTimeScale(scaledDuration);
+            action.time = priorityAnim.time;
+
             console.log(action.timeScale);
         });
 
