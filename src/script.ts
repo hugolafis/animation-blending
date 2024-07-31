@@ -23,7 +23,7 @@ renderer.setPixelRatio(1); // for DPI scaling set to window.devicePixelRatio
 renderer.setSize(1, 1, false);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.LinearToneMapping;
-renderer.toneMappingExposure = 1.0;
+renderer.toneMappingExposure = 1.25;
 let viewer: Viewer;
 
 function init() {

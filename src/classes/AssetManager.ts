@@ -32,6 +32,7 @@ export class AssetManager {
     }
 
     private loadAnimations() {
+        // Running
         this.fbxLoader.load('/assets/running.fbx', data => {
             const existingClips: THREE.AnimationClip[] = this.animations.get('character') ?? [];
             data.animations[0].name = 'running';
@@ -48,22 +49,56 @@ export class AssetManager {
             this.animations.set('character', existingClips);
         });
 
-        this.fbxLoader.load('/assets/strafe_left.fbx', data => {
+        this.fbxLoader.load('/assets/running_left.fbx', data => {
             const existingClips: THREE.AnimationClip[] = this.animations.get('character') ?? [];
-            data.animations[0].name = 'strafe_left';
+            data.animations[0].name = 'running_left';
 
             existingClips.push(...data.animations);
             this.animations.set('character', existingClips);
         });
 
-        this.fbxLoader.load('/assets/strafe_right.fbx', data => {
+        this.fbxLoader.load('/assets/running_right.fbx', data => {
             const existingClips: THREE.AnimationClip[] = this.animations.get('character') ?? [];
-            data.animations[0].name = 'strafe_right';
+            data.animations[0].name = 'running_right';
 
             existingClips.push(...data.animations);
             this.animations.set('character', existingClips);
         });
 
+        // Walking
+        this.fbxLoader.load('/assets/walking.fbx', data => {
+            const existingClips: THREE.AnimationClip[] = this.animations.get('character') ?? [];
+            data.animations[0].name = 'walking';
+
+            existingClips.push(...data.animations);
+            this.animations.set('character', existingClips);
+        });
+
+        this.fbxLoader.load('/assets/walking_back.fbx', data => {
+            const existingClips: THREE.AnimationClip[] = this.animations.get('character') ?? [];
+            data.animations[0].name = 'walking_back';
+
+            existingClips.push(...data.animations);
+            this.animations.set('character', existingClips);
+        });
+
+        this.fbxLoader.load('/assets/walking_left.fbx', data => {
+            const existingClips: THREE.AnimationClip[] = this.animations.get('character') ?? [];
+            data.animations[0].name = 'walking_left';
+
+            existingClips.push(...data.animations);
+            this.animations.set('character', existingClips);
+        });
+
+        this.fbxLoader.load('/assets/walking_right.fbx', data => {
+            const existingClips: THREE.AnimationClip[] = this.animations.get('character') ?? [];
+            data.animations[0].name = 'walking_right';
+
+            existingClips.push(...data.animations);
+            this.animations.set('character', existingClips);
+        });
+
+        // Idle
         this.fbxLoader.load('/assets/idle.fbx', data => {
             const existingClips: THREE.AnimationClip[] = this.animations.get('character') ?? [];
             data.animations[0].name = 'idle';
