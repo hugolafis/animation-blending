@@ -85,16 +85,20 @@ export class AssetManager {
         this.fbxLoader.load('/assets/walking_left.fbx', data => {
             const existingClips: THREE.AnimationClip[] = this.animations.get('character') ?? [];
             data.animations[0].name = 'walking_left';
+            const backward_right = data.animations[0].clone();
+            backward_right.name = 'walking_back_right';
 
-            existingClips.push(...data.animations);
+            existingClips.push(...data.animations, backward_right);
             this.animations.set('character', existingClips);
         });
 
         this.fbxLoader.load('/assets/walking_right.fbx', data => {
             const existingClips: THREE.AnimationClip[] = this.animations.get('character') ?? [];
             data.animations[0].name = 'walking_right';
+            const backward_left = data.animations[0].clone();
+            backward_left.name = 'walking_back_left';
 
-            existingClips.push(...data.animations);
+            existingClips.push(...data.animations, backward_left);
             this.animations.set('character', existingClips);
         });
 

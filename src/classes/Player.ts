@@ -3,6 +3,7 @@ import { AssetManager } from './AssetManager';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { InputManager } from './InputManager';
 import { lerp } from 'three/src/math/MathUtils';
+import { BlendSpace2D } from './BlendSpace2D';
 
 export class Player extends THREE.Group {
     private readonly mesh: THREE.Group;
@@ -13,6 +14,9 @@ export class Player extends THREE.Group {
     private maxSpeed = 3.5;
 
     private arrowHelper: THREE.ArrowHelper;
+
+    private readonly walkingBlend: BlendSpace2D;
+    private readonly runningBlend: BlendSpace2D;
 
     constructor(
         private readonly camera: THREE.Camera,
@@ -37,15 +41,67 @@ export class Player extends THREE.Group {
 
         this.add(this.mesh, this.arrowHelper);
 
+        this.walkingBlend = new BlendSpace2D();
+        this.runningBlend = new BlendSpace2D();
+        this.walkingBlend.addAnimations([
+            {
+                name: 'walking',
+                position: { x: 0, y: 1 },
+            },
+            {
+                name: 'walking_back',
+                position: { x: 0, y: -1 },
+            },
+            {
+                name: 'walking_left',
+                position: { x: 1, y: 0 },
+            },
+            {
+                name: 'walking_right',
+                position: { x: -1, y: 0 },
+            },
+        ]);
+        this.runningBlend.addAnimations([
+            {
+                name: 'running',
+                position: { x: 0, y: 1 },
+            },
+            {
+                name: 'running_back',
+                position: { x: 0, y: -1 },
+            },
+            {
+                name: 'running_left',
+                position: { x: 1, y: 0 },
+            },
+            {
+                name: 'running_right',
+                position: { x: -1, y: 0 },
+            },
+        ]);
+
         this._animations = new Map();
         this.mixer = new THREE.AnimationMixer(this.mesh);
         const meshAnimations = this.assetManager.animations.get('character');
         meshAnimations?.forEach(animClip => {
             const action = this.mixer.clipAction(animClip);
             action.weight = 0;
+
+            // Diagonal backwards needs to reversed
+            if (animClip.name.includes('back_')) {
+                action.setEffectiveTimeScale(-1);
+            }
+
             action.play();
             this._animations.set(animClip.name, action);
         });
+
+        // Manually insert some for diagonals...
+        // Intentionally need the opposite direction
+        // const walking_back_left = this._animations.get('walking_right')!;
+        // const walking_back_right = this._animations.get('walking_left')!;
+        // this._animations.set('walking_back_left', walking_back_left);
+        // this._animations.set('walking_back_right', walking_back_right);
     }
 
     update(dt: number) {
@@ -100,6 +156,14 @@ export class Player extends THREE.Group {
         this.mixer.update(dt);
     }
 
+    private setWalkWeights() {
+        //
+    }
+
+    private setRunWeights() {
+        //
+    }
+
     private updateAnimationWeights() {
         const direction = this.velocity.clone().normalize();
         direction.applyQuaternion(this.mesh.quaternion);
@@ -107,92 +171,51 @@ export class Player extends THREE.Group {
         const speed = this.velocity.length();
         this.arrowHelper.setLength(speed);
 
-        const speedQuotient = speed / this.maxSpeed;
-        const speedFactor = lerp(0, 1, speedQuotient);
+        const idle = this._animations.get('idle')!;
 
-        const walkSpeedQuotient = speed / 3; // magic number to flip between running and walking (m/s)
-        const walkSpeedFactor = lerp(0, 1, walkSpeedQuotient * 1.5);
+        // TESTING CUSTOM BLEND
+        const scaledDirectionWalking = direction.clone().multiplyScalar(Math.min(1, speed / 1.5)); // less than max speed
+        const scaledDirectionRunning = direction.clone().multiplyScalar(speed / this.maxSpeed);
 
-        const walkRunMixQuotient = Math.min(1, walkSpeedQuotient);
-        const walkRunMix = lerp(0, 1, walkRunMixQuotient);
+        let totalWeightSum = 0;
+        const blendValues = this.walkingBlend.update({ x: scaledDirectionWalking.x, y: scaledDirectionWalking.z });
+        blendValues.forEach(animValue => {
+            const matchingAction = this._animations.get(animValue.name)!;
+            matchingAction.weight = animValue.weight;
+            totalWeightSum += animValue.weight;
+        });
 
-        let dot: number;
-        let sum: number = 0;
-
-        const forwardRun = this._animations.get('running')!;
-        const backwardRun = this._animations.get('running_back')!;
-        const leftRun = this._animations.get('running_left')!;
-        const rightRun = this._animations.get('running_right')!;
-
-        const forwardWalk = this._animations.get('walking')!;
-        const backwardWalk = this._animations.get('walking_back')!;
+        // Edge cases
+        // Need to reverse the weights / timescale for left/right if we're travelling backwards
+        const backward = this._animations.get('walking_back')!;
         const leftWalk = this._animations.get('walking_left')!;
         const rightWalk = this._animations.get('walking_right')!;
+        const backLeftWalk = this._animations.get('walking_back_left')!;
+        const backRightWalk = this._animations.get('walking_back_right')!;
 
-        // forward
-        const tempVec = new THREE.Vector3(0, 0, 1);
-        dot = tempVec.dot(direction);
-        forwardRun.weight = Math.max(0, dot) * walkRunMix;
-        forwardWalk.weight = Math.max(0, dot) * (1.0 - walkRunMix);
-        sum += forwardRun.weight;
-        sum += forwardWalk.weight;
+        if (backward.weight > 0) {
+            backLeftWalk.weight = leftWalk.weight;
+            backRightWalk.weight = rightWalk.weight;
+            leftWalk.weight = 0;
+            rightWalk.weight = 0;
+        } else {
+            backLeftWalk.weight = 0;
+            backRightWalk.weight = 0;
+        }
 
-        // backward
-        tempVec.set(0, 0, -1);
-        dot = tempVec.dot(direction);
-        backwardRun.weight = Math.max(0, dot) * walkRunMix;
-        backwardWalk.weight = Math.max(0, dot) * (1.0 - walkRunMix);
-        sum += backwardRun.weight;
-        sum += backwardWalk.weight;
+        idle.weight = 1.0 - totalWeightSum;
 
-        // left
-        tempVec.set(1, 0, 0);
-        dot = tempVec.dot(direction);
-        leftRun.weight = Math.max(0, dot) * walkRunMix;
-        leftWalk.weight = Math.max(0, dot) * (1.0 - walkRunMix);
-        sum += leftRun.weight;
-        sum += leftWalk.weight;
-
-        // right
-        tempVec.set(-1, 0, 0);
-        dot = tempVec.dot(direction);
-        rightRun.weight = Math.max(0, dot) * walkRunMix;
-        rightWalk.weight = Math.max(0, dot) * (1.0 - walkRunMix);
-        sum += rightRun.weight;
-        sum += rightWalk.weight;
-
-        forwardRun.weight = forwardRun.weight > 0 ? forwardRun.weight / sum : 0;
-        backwardRun.weight = backwardRun.weight > 0 ? backwardRun.weight / sum : 0;
-        leftRun.weight = leftRun.weight > 0 ? leftRun.weight / sum : 0;
-        rightRun.weight = rightRun.weight > 0 ? rightRun.weight / sum : 0;
-
-        forwardWalk.weight = forwardWalk.weight > 0 ? forwardWalk.weight / sum : 0;
-        backwardWalk.weight = backwardWalk.weight > 0 ? backwardWalk.weight / sum : 0;
-        leftWalk.weight = leftWalk.weight > 0 ? leftWalk.weight / sum : 0;
-        rightWalk.weight = rightWalk.weight > 0 ? rightWalk.weight / sum : 0;
-
-        const anims = [forwardRun, backwardRun, leftRun, rightRun, forwardWalk, backwardWalk, leftWalk, rightWalk];
-
-        // Find the priority anim
-        const priorityAnim = anims.reduce((a, b) => (a.weight > b.weight ? a : b));
-
-        let finalSpeedFactor = priorityAnim.getClip().name.includes('walk') ? walkSpeedFactor : speedFactor;
-
-        //priorityAnim.setEffectiveTimeScale(finalSpeedFactor);
-        priorityAnim.setEffectiveTimeScale(1);
-
-        //console.log(speedFactor);
+        let allAnims = Array.from(this._animations, ([_, v]) => v);
+        allAnims = allAnims.filter(x => !x.getClip().name.includes('idle'));
+        const priorityAnim = allAnims.reduce((a, b) => (a.weight > b.weight ? a : b));
+        priorityAnim.setEffectiveTimeScale(1 * Math.sign(priorityAnim.timeScale));
         const priorityClipDuration = priorityAnim.getClip().duration;
 
-        // Force the other anims to match their lengths to this one
-        anims.forEach(action => {
+        allAnims.forEach(action => {
             if (action === priorityAnim) return;
 
             const scaledDuration = action.getClip().duration / priorityClipDuration;
-            action.setEffectiveTimeScale(scaledDuration);
-            action.time = priorityAnim.time;
-
-            //console.log(action.timeScale);
+            action.setEffectiveTimeScale(scaledDuration * Math.sign(action.timeScale));
         });
     }
 }
