@@ -10,7 +10,56 @@ export interface AnimationWeights {
     weight: number;
 }
 
-// Helper class to calculate weights for a given set of animations based on direction
+// // Helper class to calculate weights for a given set of animations based on direction
+// export class BlendSpace2D {
+//     private readonly animations: Map<string, BlendedAnimation>;
+
+//     private readonly dirHelper: THREE.Vector2;
+//     private readonly posHelper: THREE.Vector2;
+
+//     constructor() {
+//         this.animations = new Map();
+
+//         this.dirHelper = new THREE.Vector2();
+//         this.posHelper = new THREE.Vector2();
+//     }
+
+//     addAnimations(anims: BlendedAnimation[]) {
+//         anims.forEach(anim => this.animations.set(anim.name, anim));
+//     }
+
+//     removeAnimations(anims: BlendedAnimation[]) {
+//         anims.forEach(anim => this.animations.delete(anim.name));
+//     }
+
+//     update(direction: THREE.Vector2Like): AnimationWeights[] {
+//         const animationWeights: AnimationWeights[] = [];
+//         this.dirHelper.set(direction.x, direction.y);
+//         const dirLength = this.dirHelper.length();
+
+//         let weightSum = 0;
+//         this.animations.forEach(anim => {
+//             this.posHelper.set(anim.position.x, anim.position.y).normalize();
+
+//             const normalizedDirection = this.dirHelper.clone().normalize();
+//             const dotP = this.posHelper.dot(normalizedDirection);
+
+//             const weight = Math.max(0, dotP);
+//             weightSum += weight;
+
+//             animationWeights.push({ name: anim.name, weight });
+//         });
+
+//         // Normalise
+//         animationWeights.forEach(animWeight => {
+//             animWeight.weight = animWeight.weight > 0 ? (animWeight.weight / weightSum) * dirLength : 0;
+//         });
+
+//         return animationWeights;
+//     }
+// }
+
+// Will find the nearest 3 points to the input, then provide the weights interpolated between those points
 export class BlendSpace2D {
     private readonly animations: Map<string, BlendedAnimation>;
 
@@ -32,29 +81,76 @@ export class BlendSpace2D {
         anims.forEach(anim => this.animations.delete(anim.name));
     }
 
-    update(direction: THREE.Vector2Like): AnimationWeights[] {
+    /**
+     *
+     * @param p Should have a maximum length of 1, but _not_ be normalised!
+     */
+    update(p: THREE.Vector2Like): AnimationWeights[] {
         const animationWeights: AnimationWeights[] = [];
-        this.dirHelper.set(direction.x, direction.y);
-        const dirLength = this.dirHelper.length();
 
-        let weightSum = 0;
-        this.animations.forEach(anim => {
-            this.posHelper.set(anim.position.x, anim.position.y).normalize();
+        // Find the closest three points to the direction
+        const lengths: { id: string; distance: number }[] = [];
+        this.animations.forEach((anim, id) => {
+            const direction = { x: p.x - anim.position.x, y: p.y - anim.position.y };
+            const length = Math.sqrt(direction.x * direction.x + direction.y * direction.y); // todo could probably just compare the square lengths?
 
-            const normalizedDirection = this.dirHelper.clone().normalize();
-            const dotP = this.posHelper.dot(normalizedDirection);
+            animationWeights.push({
+                name: id,
+                weight: 0,
+            });
 
-            const weight = Math.max(0, dotP);
-            weightSum += weight;
-
-            animationWeights.push({ name: anim.name, weight });
+            lengths.push({ id, distance: length });
         });
 
-        // Normalise
+        lengths.sort((a, b) => a.distance - b.distance);
+
+        const v1 = this.animations.get(lengths[0].id)!;
+        const v2 = this.animations.get(lengths[1].id)!;
+        const v3 = this.animations.get(lengths[2].id)!;
+
+        // Barycentric center calcs
+        // prettier-ignore
+        const W1 =
+            (
+                (v2.position.y - v3.position.y) * (p.x - v3.position.x) +
+                (v3.position.x - v2.position.x) * (p.y - v3.position.y)
+            ) / (   
+                (v2.position.y - v3.position.y) * (v1.position.x - v3.position.x) +
+                (v3.position.x - v2.position.x) * (v1.position.y - v3.position.y)
+            );
+
+        // prettier-ignore
+        const W2 = 
+        (
+            (v3.position.y - v1.position.y) * (p.x - v3.position.x) + 
+            (v1.position.x - v3.position.x) * (p.y - v3.position.y)
+        ) / (
+            (v2.position.y - v3.position.y) * (v1.position.x - v3.position.x) +
+            (v3.position.x - v2.position.x) * (v1.position.y - v3.position.y)
+        );
+
+        const W3 = 1 - W1 - W2;
+
         animationWeights.forEach(animWeight => {
-            animWeight.weight = animWeight.weight > 0 ? (animWeight.weight / weightSum) * dirLength : 0;
+            switch (animWeight.name) {
+                case v1.name:
+                    animWeight.weight = W1;
+                    break;
+                case v2.name:
+                    animWeight.weight = W2;
+                    break;
+                case v3.name:
+                    animWeight.weight = W3;
+                    break;
+                default:
+                    break;
+            }
         });
 
         return animationWeights;
+
+        // console.log('\n\n\n');
+        // console.log(W1, W2, W3);
+        // console.log(W1 + W2 + W3);
     }
 }

@@ -15,8 +15,7 @@ export class Player extends THREE.Group {
 
     private arrowHelper: THREE.ArrowHelper;
 
-    private readonly walkingBlend: BlendSpace2D;
-    private readonly runningBlend: BlendSpace2D;
+    private readonly animationBlend: BlendSpace2D;
 
     constructor(
         private readonly camera: THREE.Camera,
@@ -41,9 +40,8 @@ export class Player extends THREE.Group {
 
         this.add(this.mesh, this.arrowHelper);
 
-        this.walkingBlend = new BlendSpace2D();
-        this.runningBlend = new BlendSpace2D();
-        this.walkingBlend.addAnimations([
+        this.animationBlend = new BlendSpace2D();
+        this.animationBlend.addAnimations([
             {
                 name: 'walking',
                 position: { x: 0, y: 1 },
@@ -60,23 +58,9 @@ export class Player extends THREE.Group {
                 name: 'walking_right',
                 position: { x: -1, y: 0 },
             },
-        ]);
-        this.runningBlend.addAnimations([
             {
-                name: 'running',
-                position: { x: 0, y: 1 },
-            },
-            {
-                name: 'running_back',
-                position: { x: 0, y: -1 },
-            },
-            {
-                name: 'running_left',
-                position: { x: 1, y: 0 },
-            },
-            {
-                name: 'running_right',
-                position: { x: -1, y: 0 },
+                name: 'idle',
+                position: { x: 0, y: 0 },
             },
         ]);
 
@@ -136,7 +120,6 @@ export class Player extends THREE.Group {
         let clampedLength = this.velocity.length();
 
         clampedLength = this.maxSpeed / clampedLength;
-        //console.log(clampedLength);
 
         if (clampedLength < 1) {
             this.velocity.multiplyScalar(clampedLength);
@@ -156,79 +139,87 @@ export class Player extends THREE.Group {
         const speed = this.velocity.length();
         this.arrowHelper.setLength(speed);
 
-        const idle = this._animations.get('idle')!;
+        const scaledDirection = direction.multiplyScalar(speed / this.maxSpeed);
 
-        // TESTING CUSTOM BLEND
-        const walkingBlend = speed / 1.5;
-        const runBlend = Math.min(1, lerp(0, 1, Math.max(0, walkingBlend - 1)));
-
-        const scaledDirectionWalking = direction.clone().multiplyScalar(Math.min(1, walkingBlend)); // less than max speed
-        const scaledDirectionRunning = direction.clone().multiplyScalar(speed / this.maxSpeed);
-
-        console.log(runBlend);
-
-        let totalWeightSum = 0;
-        const walkBlendValues = this.walkingBlend.update({ x: scaledDirectionWalking.x, y: scaledDirectionWalking.z });
-        const runBlendValues = this.runningBlend.update({ x: scaledDirectionRunning.x, y: scaledDirectionRunning.z });
-        walkBlendValues.forEach(animValue => {
-            const matchingAction = this._animations.get(animValue.name)!;
-            matchingAction.weight = animValue.weight * (1.0 - runBlend);
-            totalWeightSum += animValue.weight * (1.0 - runBlend);
+        const weights = this.animationBlend.update({ x: scaledDirection.x, y: scaledDirection.z });
+        weights.forEach(animWeight => {
+            const matchingAction = this._animations.get(animWeight.name)!;
+            matchingAction.weight = animWeight.weight;
         });
 
-        runBlendValues.forEach(animValue => {
-            const matchingAction = this._animations.get(animValue.name)!;
-            matchingAction.weight = animValue.weight * runBlend;
-            totalWeightSum += animValue.weight * runBlend;
-        });
+        // const idle = this._animations.get('idle')!;
 
-        // Edge cases
-        // Need to reverse the weights / timescale for left/right if we're travelling backwards
-        const walk_backward = this._animations.get('walking_back')!;
-        const leftWalk = this._animations.get('walking_left')!;
-        const rightWalk = this._animations.get('walking_right')!;
-        const backLeftWalk = this._animations.get('walking_back_left')!;
-        const backRightWalk = this._animations.get('walking_back_right')!;
+        // // TESTING CUSTOM BLEND
+        // const walkingBlend = speed / 1.5;
+        // const runBlend = Math.min(1, lerp(0, 1, Math.max(0, walkingBlend - 1)));
 
-        if (walk_backward.weight > 0) {
-            backLeftWalk.weight = leftWalk.weight;
-            backRightWalk.weight = rightWalk.weight;
-            leftWalk.weight = 0;
-            rightWalk.weight = 0;
-        } else {
-            backLeftWalk.weight = 0;
-            backRightWalk.weight = 0;
-        }
+        // const scaledDirectionWalking = direction.clone().multiplyScalar(Math.min(1, walkingBlend)); // less than max speed
+        // const scaledDirectionRunning = direction.clone().multiplyScalar(speed / this.maxSpeed);
 
-        const run_backward = this._animations.get('running_back')!;
-        const leftRun = this._animations.get('running_left')!;
-        const rightRun = this._animations.get('running_right')!;
-        const backLeftRun = this._animations.get('running_back_left')!;
-        const backRightRun = this._animations.get('running_back_right')!;
+        // console.log(runBlend);
 
-        if (run_backward.weight > 0) {
-            backLeftRun.weight = leftRun.weight;
-            backRightRun.weight = rightRun.weight;
-            leftRun.weight = 0;
-            rightRun.weight = 0;
-        } else {
-            backLeftRun.weight = 0;
-            backRightRun.weight = 0;
-        }
+        // let totalWeightSum = 0;
+        // const walkBlendValues = this.walkingBlend.update({ x: scaledDirectionWalking.x, y: scaledDirectionWalking.z });
+        // const runBlendValues = this.runningBlend.update({ x: scaledDirectionRunning.x, y: scaledDirectionRunning.z });
+        // walkBlendValues.forEach(animValue => {
+        //     const matchingAction = this._animations.get(animValue.name)!;
+        //     matchingAction.weight = animValue.weight * (1.0 - runBlend);
+        //     totalWeightSum += animValue.weight * (1.0 - runBlend);
+        // });
 
-        idle.weight = 1.0 - totalWeightSum;
+        // runBlendValues.forEach(animValue => {
+        //     const matchingAction = this._animations.get(animValue.name)!;
+        //     matchingAction.weight = animValue.weight * runBlend;
+        //     totalWeightSum += animValue.weight * runBlend;
+        // });
 
-        let allAnims = Array.from(this._animations, ([_, v]) => v);
-        allAnims = allAnims.filter(x => !x.getClip().name.includes('idle'));
-        const priorityAnim = allAnims.reduce((a, b) => (a.weight > b.weight ? a : b));
-        priorityAnim.setEffectiveTimeScale(1 * Math.sign(priorityAnim.timeScale));
-        const priorityClipDuration = priorityAnim.getClip().duration;
+        // // Edge cases
+        // // Need to reverse the weights / timescale for left/right if we're travelling backwards
+        // const walk_backward = this._animations.get('walking_back')!;
+        // const leftWalk = this._animations.get('walking_left')!;
+        // const rightWalk = this._animations.get('walking_right')!;
+        // const backLeftWalk = this._animations.get('walking_back_left')!;
+        // const backRightWalk = this._animations.get('walking_back_right')!;
 
-        allAnims.forEach(action => {
-            if (action === priorityAnim) return;
+        // if (walk_backward.weight > 0) {
+        //     backLeftWalk.weight = leftWalk.weight;
+        //     backRightWalk.weight = rightWalk.weight;
+        //     leftWalk.weight = 0;
+        //     rightWalk.weight = 0;
+        // } else {
+        //     backLeftWalk.weight = 0;
+        //     backRightWalk.weight = 0;
+        // }
 
-            const scaledDuration = action.getClip().duration / priorityClipDuration;
-            action.setEffectiveTimeScale(scaledDuration * Math.sign(action.timeScale));
-        });
+        // const run_backward = this._animations.get('running_back')!;
+        // const leftRun = this._animations.get('running_left')!;
+        // const rightRun = this._animations.get('running_right')!;
+        // const backLeftRun = this._animations.get('running_back_left')!;
+        // const backRightRun = this._animations.get('running_back_right')!;
+
+        // if (run_backward.weight > 0) {
+        //     backLeftRun.weight = leftRun.weight;
+        //     backRightRun.weight = rightRun.weight;
+        //     leftRun.weight = 0;
+        //     rightRun.weight = 0;
+        // } else {
+        //     backLeftRun.weight = 0;
+        //     backRightRun.weight = 0;
+        // }
+
+        // idle.weight = 1.0 - totalWeightSum;
+
+        // let allAnims = Array.from(this._animations, ([_, v]) => v);
+        // allAnims = allAnims.filter(x => !x.getClip().name.includes('idle'));
+        // const priorityAnim = allAnims.reduce((a, b) => (a.weight > b.weight ? a : b));
+        // priorityAnim.setEffectiveTimeScale(1 * Math.sign(priorityAnim.timeScale));
+        // const priorityClipDuration = priorityAnim.getClip().duration;
+
+        // allAnims.forEach(action => {
+        //     if (action === priorityAnim) return;
+
+        //     const scaledDuration = action.getClip().duration / priorityClipDuration;
+        //     action.setEffectiveTimeScale(scaledDuration * Math.sign(action.timeScale));
+        // });
     }
 }
