@@ -53,7 +53,10 @@ export class AssetManager {
             const existingClips: THREE.AnimationClip[] = this.animations.get('character') ?? [];
             data.animations[0].name = 'running_left';
 
-            existingClips.push(...data.animations);
+            const backward_right = data.animations[0].clone();
+            backward_right.name = 'running_back_right';
+
+            existingClips.push(...data.animations, backward_right);
             this.animations.set('character', existingClips);
         });
 
@@ -61,7 +64,10 @@ export class AssetManager {
             const existingClips: THREE.AnimationClip[] = this.animations.get('character') ?? [];
             data.animations[0].name = 'running_right';
 
-            existingClips.push(...data.animations);
+            const backward_left = data.animations[0].clone();
+            backward_left.name = 'running_back_left';
+
+            existingClips.push(...data.animations, backward_left);
             this.animations.set('character', existingClips);
         });
 

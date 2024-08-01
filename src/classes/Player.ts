@@ -95,13 +95,6 @@ export class Player extends THREE.Group {
             action.play();
             this._animations.set(animClip.name, action);
         });
-
-        // Manually insert some for diagonals...
-        // Intentionally need the opposite direction
-        // const walking_back_left = this._animations.get('walking_right')!;
-        // const walking_back_right = this._animations.get('walking_left')!;
-        // this._animations.set('walking_back_left', walking_back_left);
-        // this._animations.set('walking_back_right', walking_back_right);
     }
 
     update(dt: number) {
@@ -109,12 +102,12 @@ export class Player extends THREE.Group {
         //this.controls.target.copy(this.position).add({ x: 0, y: 1, z: 0 });
 
         // Rotate player mesh to face camera dir - todo do this properly
-        const lookDir = this.camera.position.clone().normalize();
-        lookDir.y = 0;
-        lookDir.normalize();
-        lookDir.multiplyScalar(-1);
-        lookDir.add(this.position);
-        this.mesh.lookAt(lookDir);
+        // const lookDir = this.camera.position.clone().normalize();
+        // lookDir.y = 0;
+        // lookDir.normalize();
+        // lookDir.multiplyScalar(-1);
+        // lookDir.add(this.position);
+        // this.mesh.lookAt(lookDir);
 
         // Moving
         const step = new THREE.Vector3();
@@ -156,14 +149,6 @@ export class Player extends THREE.Group {
         this.mixer.update(dt);
     }
 
-    private setWalkWeights() {
-        //
-    }
-
-    private setRunWeights() {
-        //
-    }
-
     private updateAnimationWeights() {
         const direction = this.velocity.clone().normalize();
         direction.applyQuaternion(this.mesh.quaternion);
@@ -174,26 +159,38 @@ export class Player extends THREE.Group {
         const idle = this._animations.get('idle')!;
 
         // TESTING CUSTOM BLEND
-        const scaledDirectionWalking = direction.clone().multiplyScalar(Math.min(1, speed / 1.5)); // less than max speed
+        const walkingBlend = speed / 1.5;
+        const runBlend = Math.min(1, lerp(0, 1, Math.max(0, walkingBlend - 1)));
+
+        const scaledDirectionWalking = direction.clone().multiplyScalar(Math.min(1, walkingBlend)); // less than max speed
         const scaledDirectionRunning = direction.clone().multiplyScalar(speed / this.maxSpeed);
 
+        console.log(runBlend);
+
         let totalWeightSum = 0;
-        const blendValues = this.walkingBlend.update({ x: scaledDirectionWalking.x, y: scaledDirectionWalking.z });
-        blendValues.forEach(animValue => {
+        const walkBlendValues = this.walkingBlend.update({ x: scaledDirectionWalking.x, y: scaledDirectionWalking.z });
+        const runBlendValues = this.runningBlend.update({ x: scaledDirectionRunning.x, y: scaledDirectionRunning.z });
+        walkBlendValues.forEach(animValue => {
             const matchingAction = this._animations.get(animValue.name)!;
-            matchingAction.weight = animValue.weight;
-            totalWeightSum += animValue.weight;
+            matchingAction.weight = animValue.weight * (1.0 - runBlend);
+            totalWeightSum += animValue.weight * (1.0 - runBlend);
+        });
+
+        runBlendValues.forEach(animValue => {
+            const matchingAction = this._animations.get(animValue.name)!;
+            matchingAction.weight = animValue.weight * runBlend;
+            totalWeightSum += animValue.weight * runBlend;
         });
 
         // Edge cases
         // Need to reverse the weights / timescale for left/right if we're travelling backwards
-        const backward = this._animations.get('walking_back')!;
+        const walk_backward = this._animations.get('walking_back')!;
         const leftWalk = this._animations.get('walking_left')!;
         const rightWalk = this._animations.get('walking_right')!;
         const backLeftWalk = this._animations.get('walking_back_left')!;
         const backRightWalk = this._animations.get('walking_back_right')!;
 
-        if (backward.weight > 0) {
+        if (walk_backward.weight > 0) {
             backLeftWalk.weight = leftWalk.weight;
             backRightWalk.weight = rightWalk.weight;
             leftWalk.weight = 0;
@@ -201,6 +198,22 @@ export class Player extends THREE.Group {
         } else {
             backLeftWalk.weight = 0;
             backRightWalk.weight = 0;
+        }
+
+        const run_backward = this._animations.get('running_back')!;
+        const leftRun = this._animations.get('running_left')!;
+        const rightRun = this._animations.get('running_right')!;
+        const backLeftRun = this._animations.get('running_back_left')!;
+        const backRightRun = this._animations.get('running_back_right')!;
+
+        if (run_backward.weight > 0) {
+            backLeftRun.weight = leftRun.weight;
+            backRightRun.weight = rightRun.weight;
+            leftRun.weight = 0;
+            rightRun.weight = 0;
+        } else {
+            backLeftRun.weight = 0;
+            backRightRun.weight = 0;
         }
 
         idle.weight = 1.0 - totalWeightSum;
