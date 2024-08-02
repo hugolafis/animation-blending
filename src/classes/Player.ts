@@ -67,6 +67,22 @@ export class Player extends THREE.Group {
                 name: 'running_back',
                 position: { x: 0, y: -1 },
             },
+            // {
+            //     name: 'walking',
+            //     position: { x: 0, y: 0.5 },
+            // },
+            // {
+            //     name: 'walking_back',
+            //     position: { x: 0, y: -0.5 },
+            // },
+            // {
+            //     name: 'walking_left',
+            //     position: { x: 0.5, y: 0 },
+            // },
+            // {
+            //     name: 'walking_right',
+            //     position: { x: -0.5, y: 0 },
+            // },
             {
                 name: 'idle',
                 position: { x: 0, y: 0 },
@@ -309,15 +325,18 @@ export class Player extends THREE.Group {
             const matchingWeight = weights.find(w => w.name === anim.name)!;
 
             const minRadius = 5;
-            const maxRadius = 25;
+            const maxRadius = 20;
 
-            const radius = lerp(minRadius, maxRadius, matchingWeight?.weight);
+            const radius = lerp(minRadius, maxRadius, matchingWeight.weight);
 
-            // this.canvasCtx2D.beginPath();
-            // this.canvasCtx2D.strokeStyle = 'blue';
-            // this.canvasCtx2D.moveTo(normalisedCoords.x * canvasWidth, normalisedCoords.y * canvasHeight);
-            // this.canvasCtx2D.lineTo(canvasWidth / 2, canvasHeight / 2);
-            // this.canvasCtx2D.stroke();
+            const color = `
+            rgb(
+                0.5,
+                ${lerp(0.5, 1, matchingWeight.weight) * 255},
+                ${lerp(0.5, 1, 1.0 - matchingWeight.weight) * 255}
+            )
+            `;
+
             this.canvasCtx2D.beginPath();
             this.canvasCtx2D.ellipse(
                 normalisedCoords.x * canvasWidth,
@@ -329,11 +348,11 @@ export class Player extends THREE.Group {
                 2 * Math.PI,
                 false
             );
-            this.canvasCtx2D.fillStyle = 'red';
+            this.canvasCtx2D.fillStyle = color;
             this.canvasCtx2D.fill();
 
             this.canvasCtx2D.fillStyle = 'white';
-            this.canvasCtx2D.font = '14px monospace';
+            this.canvasCtx2D.font = '12px monospace';
             this.canvasCtx2D.fillText(
                 anim.name,
                 normalisedCoords.x * canvasWidth,

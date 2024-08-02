@@ -131,7 +131,7 @@ export class BlendSpace2D {
 
         let W3 = 1 - W1 - W2;
 
-        // Max to 0... ?
+        // Max to 0... ? todo - make sure these all add up to 1 w/o going negative... clamp to triangle edges somehow
         W1 = Math.max(0, W1);
         W2 = Math.max(0, W2);
         W3 = Math.max(0, W3);
