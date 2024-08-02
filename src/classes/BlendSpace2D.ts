@@ -88,12 +88,11 @@ export class BlendSpace2D {
     update(p: THREE.Vector2Like): [AnimationWeights[], AnimationWeights[]] {
         const animationWeights: AnimationWeights[] = [];
 
-        // TODO - prevent degenerate triangles!
         // Find the closest three points to the direction
         const lengths: { id: string; distance: number }[] = [];
         this.animations.forEach((anim, id) => {
             const direction = { x: p.x - anim.position.x, y: p.y - anim.position.y };
-            const length = Math.sqrt(direction.x * direction.x + direction.y * direction.y); // todo could probably just compare the square lengths?
+            const length = direction.x * direction.x + direction.y * direction.y; // todo could probably just compare the square lengths?
 
             animationWeights.push({
                 name: id,
@@ -133,15 +132,15 @@ export class BlendSpace2D {
             (
                 (v2.position.y - v3.position.y) * (p.x - v3.position.x) +
                 (v3.position.x - v2.position.x) * (p.y - v3.position.y)
-            ) / (   
+            ) / (
                 (v2.position.y - v3.position.y) * (v1.position.x - v3.position.x) +
                 (v3.position.x - v2.position.x) * (v1.position.y - v3.position.y)
             );
 
         // prettier-ignore
-        let W2 = 
+        let W2 =
         (
-            (v3.position.y - v1.position.y) * (p.x - v3.position.x) + 
+            (v3.position.y - v1.position.y) * (p.x - v3.position.x) +
             (v1.position.x - v3.position.x) * (p.y - v3.position.y)
         ) / (
             (v2.position.y - v3.position.y) * (v1.position.x - v3.position.x) +
@@ -150,10 +149,17 @@ export class BlendSpace2D {
 
         let W3 = 1 - W1 - W2;
 
+        // todo - need to project the point back onto the triangle...?
+
         // Max to 0... ? todo - make sure these all add up to 1 w/o going negative... clamp to triangle edges somehow
         W1 = Math.max(0, W1);
         W2 = Math.max(0, W2);
         W3 = Math.max(0, W3);
+
+        let sum = W1 + W2 + W3;
+        W1 = W1 > 0 ? W1 / sum : 0;
+        W2 = W2 > 0 ? W2 / sum : 0;
+        W3 = W3 > 0 ? W3 / sum : 0;
 
         animationWeights.forEach(animWeight => {
             switch (animWeight.name) {

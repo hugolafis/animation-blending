@@ -208,6 +208,7 @@ export class Player extends THREE.Group {
 
         this.animationBlend.update({ x: scaledDirection.x, y: scaledDirection.z });
 
+        // todo fix don't scale anims to the idle one...
         const [weights, visData] = this.animationBlend.update({ x: scaledDirection.x, y: scaledDirection.z });
         const priorityAnim = this._animations.get(weights[0].name)!;
         priorityAnim.weight = weights[0].weight;
