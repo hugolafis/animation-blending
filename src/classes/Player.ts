@@ -3,7 +3,7 @@ import { AssetManager } from './AssetManager';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { InputManager } from './InputManager';
 import { lerp } from 'three/src/math/MathUtils';
-import { BlendSpace2D } from './BlendSpace2D';
+import { AnimationWeights, BlendSpace2D } from './BlendSpace2D';
 
 export class Player extends THREE.Group {
     private readonly mesh: THREE.Group;
@@ -17,6 +17,10 @@ export class Player extends THREE.Group {
 
     private readonly animationBlend: BlendSpace2D;
 
+    private readonly canvas2D: HTMLCanvasElement;
+    private readonly canvasCtx2D: CanvasRenderingContext2D;
+    private readonly anims: { name: string; position: { x: number; y: number } }[];
+
     constructor(
         private readonly camera: THREE.Camera,
         //private readonly controls: OrbitControls,
@@ -24,6 +28,11 @@ export class Player extends THREE.Group {
         private readonly assetManager: AssetManager
     ) {
         super();
+
+        this.canvas2D = document.querySelector<HTMLCanvasElement>('canvas.animation-helper')!;
+        this.canvasCtx2D = this.canvas2D.getContext('2d')!;
+        this.canvas2D.width = 512;
+        this.canvas2D.height = 512;
 
         this.camera.position.set(0, 3, -3);
         this.camera.lookAt(new THREE.Vector3(0, 1, 0));
@@ -41,28 +50,68 @@ export class Player extends THREE.Group {
         this.add(this.mesh, this.arrowHelper);
 
         this.animationBlend = new BlendSpace2D();
-        this.animationBlend.addAnimations([
+        this.anims = [
             {
-                name: 'walking',
+                name: 'running',
                 position: { x: 0, y: 1 },
             },
             {
-                name: 'walking_back',
-                position: { x: 0, y: -1 },
-            },
-            {
-                name: 'walking_left',
+                name: 'running_left',
                 position: { x: 1, y: 0 },
             },
             {
-                name: 'walking_right',
+                name: 'running_right',
                 position: { x: -1, y: 0 },
+            },
+            {
+                name: 'running_back',
+                position: { x: 0, y: -1 },
             },
             {
                 name: 'idle',
                 position: { x: 0, y: 0 },
             },
-        ]);
+        ];
+        this.animationBlend.addAnimations(this.anims);
+
+        // this.animationBlend.addAnimations([
+        //     {
+        //         name: 'running',
+        //         position: { x: 0, y: 1 },
+        //     },
+        //     {
+        //         name: 'running_left',
+        //         position: { x: 1, y: 0 },
+        //     },
+        //     {
+        //         name: 'running_right',
+        //         position: { x: -1, y: 0 },
+        //     },
+        //     {
+        //         name: 'running_back',
+        //         position: { x: 0, y: -1 },
+        //     },
+        //     {
+        //         name: 'walking',
+        //         position: { x: 0, y: 0.3 },
+        //     },
+        //     {
+        //         name: 'walking_back',
+        //         position: { x: 0, y: -0.3 },
+        //     },
+        //     {
+        //         name: 'walking_left',
+        //         position: { x: 0.3, y: 0 },
+        //     },
+        //     {
+        //         name: 'walking_right',
+        //         position: { x: -0.3, y: 0 },
+        //     },
+        //     {
+        //         name: 'idle',
+        //         position: { x: 0, y: 0 },
+        //     },
+        // ]);
 
         this._animations = new Map();
         this.mixer = new THREE.AnimationMixer(this.mesh);
@@ -137,15 +186,32 @@ export class Player extends THREE.Group {
         direction.applyQuaternion(this.mesh.quaternion);
         this.arrowHelper.setDirection(direction);
         const speed = this.velocity.length();
-        this.arrowHelper.setLength(speed);
+        this.arrowHelper.setLength(speed / this.maxSpeed);
 
         const scaledDirection = direction.multiplyScalar(speed / this.maxSpeed);
 
+        this.animationBlend.update({ x: scaledDirection.x, y: scaledDirection.z });
+
         const weights = this.animationBlend.update({ x: scaledDirection.x, y: scaledDirection.z });
-        weights.forEach(animWeight => {
+        const priorityAnim = this._animations.get(weights[0].name)!;
+        priorityAnim.setEffectiveTimeScale(1 * Math.sign(priorityAnim.timeScale));
+        const priorityClipDuration = priorityAnim.getClip().duration;
+
+        weights.forEach((animWeight, index) => {
+            if (index === 0) return;
+
             const matchingAction = this._animations.get(animWeight.name)!;
             matchingAction.weight = animWeight.weight;
+
+            if (animWeight.name.includes('idle')) return;
+
+            const scaledDuration = matchingAction.getClip().duration / priorityClipDuration;
+            matchingAction.setEffectiveTimeScale(scaledDuration * Math.sign(matchingAction.timeScale));
         });
+
+        // Draw the graph
+
+        this.drawWeightsGraph(weights);
 
         // const idle = this._animations.get('idle')!;
 
@@ -221,5 +287,58 @@ export class Player extends THREE.Group {
         //     const scaledDuration = action.getClip().duration / priorityClipDuration;
         //     action.setEffectiveTimeScale(scaledDuration * Math.sign(action.timeScale));
         // });
+    }
+
+    private drawWeightsGraph(weights: AnimationWeights[]) {
+        const { width: canvasWidth, height: canvasHeight } = this.canvas2D;
+
+        this.canvasCtx2D.clearRect(0, 0, canvasWidth, canvasHeight);
+
+        // Draw the initial graph
+
+        this.canvasCtx2D.textAlign = 'center';
+        this.anims.forEach(anim => {
+            const normalisedCoords = { x: anim.position.x, y: anim.position.y };
+
+            // Invert these coords and normalise to 0-1
+            normalisedCoords.x *= -0.75;
+            normalisedCoords.y *= -0.75;
+            normalisedCoords.x = normalisedCoords.x * 0.5 + 0.5;
+            normalisedCoords.y = normalisedCoords.y * 0.5 + 0.5;
+
+            const matchingWeight = weights.find(w => w.name === anim.name)!;
+
+            const minRadius = 5;
+            const maxRadius = 25;
+
+            const radius = lerp(minRadius, maxRadius, matchingWeight?.weight);
+
+            // this.canvasCtx2D.beginPath();
+            // this.canvasCtx2D.strokeStyle = 'blue';
+            // this.canvasCtx2D.moveTo(normalisedCoords.x * canvasWidth, normalisedCoords.y * canvasHeight);
+            // this.canvasCtx2D.lineTo(canvasWidth / 2, canvasHeight / 2);
+            // this.canvasCtx2D.stroke();
+            this.canvasCtx2D.beginPath();
+            this.canvasCtx2D.ellipse(
+                normalisedCoords.x * canvasWidth,
+                normalisedCoords.y * canvasHeight,
+                radius,
+                radius,
+                0,
+                0,
+                2 * Math.PI,
+                false
+            );
+            this.canvasCtx2D.fillStyle = 'red';
+            this.canvasCtx2D.fill();
+
+            this.canvasCtx2D.fillStyle = 'white';
+            this.canvasCtx2D.font = '14px monospace';
+            this.canvasCtx2D.fillText(
+                anim.name,
+                normalisedCoords.x * canvasWidth,
+                normalisedCoords.y * canvasHeight + 50
+            );
+        });
     }
 }

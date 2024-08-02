@@ -26,3 +26,12 @@ body {
   justify-content: center;
   align-items: center;
 }
+
+.animation-helper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 512px;
+  height: 512px;
+  background-color: rgb(50, 50, 50);
+}

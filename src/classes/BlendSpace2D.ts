@@ -83,7 +83,7 @@ export class BlendSpace2D {
 
     /**
      *
-     * @param p Should have a maximum length of 1, but _not_ be normalised!
+     * @param p Should have a maximum length of 1, and scale from 0 - 1
      */
     update(p: THREE.Vector2Like): AnimationWeights[] {
         const animationWeights: AnimationWeights[] = [];
@@ -110,7 +110,7 @@ export class BlendSpace2D {
 
         // Barycentric center calcs
         // prettier-ignore
-        const W1 =
+        let W1 =
             (
                 (v2.position.y - v3.position.y) * (p.x - v3.position.x) +
                 (v3.position.x - v2.position.x) * (p.y - v3.position.y)
@@ -120,7 +120,7 @@ export class BlendSpace2D {
             );
 
         // prettier-ignore
-        const W2 = 
+        let W2 = 
         (
             (v3.position.y - v1.position.y) * (p.x - v3.position.x) + 
             (v1.position.x - v3.position.x) * (p.y - v3.position.y)
@@ -129,7 +129,12 @@ export class BlendSpace2D {
             (v3.position.x - v2.position.x) * (v1.position.y - v3.position.y)
         );
 
-        const W3 = 1 - W1 - W2;
+        let W3 = 1 - W1 - W2;
+
+        // Max to 0... ?
+        W1 = Math.max(0, W1);
+        W2 = Math.max(0, W2);
+        W3 = Math.max(0, W3);
 
         animationWeights.forEach(animWeight => {
             switch (animWeight.name) {
@@ -147,10 +152,13 @@ export class BlendSpace2D {
             }
         });
 
-        return animationWeights;
+        // Return a sorted list
+        animationWeights.sort((a, b) => a.weight - b.weight);
 
         // console.log('\n\n\n');
         // console.log(W1, W2, W3);
         // console.log(W1 + W2 + W3);
+
+        return animationWeights;
     }
 }
