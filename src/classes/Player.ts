@@ -67,22 +67,22 @@ export class Player extends THREE.Group {
                 name: 'running_back',
                 position: { x: 0, y: -1 },
             },
-            // {
-            //     name: 'walking',
-            //     position: { x: 0, y: 0.5 },
-            // },
-            // {
-            //     name: 'walking_back',
-            //     position: { x: 0, y: -0.5 },
-            // },
-            // {
-            //     name: 'walking_left',
-            //     position: { x: 0.5, y: 0 },
-            // },
-            // {
-            //     name: 'walking_right',
-            //     position: { x: -0.5, y: 0 },
-            // },
+            {
+                name: 'walking',
+                position: { x: 0, y: 0.5 },
+            },
+            {
+                name: 'walking_back',
+                position: { x: 0, y: -0.5 },
+            },
+            {
+                name: 'walking_left',
+                position: { x: 0.5, y: 0 },
+            },
+            {
+                name: 'walking_right',
+                position: { x: -0.5, y: 0 },
+            },
             {
                 name: 'idle',
                 position: { x: 0, y: 0 },
@@ -208,7 +208,7 @@ export class Player extends THREE.Group {
 
         this.animationBlend.update({ x: scaledDirection.x, y: scaledDirection.z });
 
-        const weights = this.animationBlend.update({ x: scaledDirection.x, y: scaledDirection.z });
+        const [weights, visData] = this.animationBlend.update({ x: scaledDirection.x, y: scaledDirection.z });
         const priorityAnim = this._animations.get(weights[0].name)!;
         priorityAnim.weight = weights[0].weight;
         priorityAnim.setEffectiveTimeScale(1 * Math.sign(priorityAnim.timeScale));
@@ -228,7 +228,7 @@ export class Player extends THREE.Group {
 
         // Draw the graph
 
-        this.drawWeightsGraph({ x: scaledDirection.x, y: scaledDirection.z }, weights);
+        this.drawWeightsGraph({ x: scaledDirection.x, y: scaledDirection.z }, weights, visData);
 
         // const idle = this._animations.get('idle')!;
 
@@ -306,7 +306,7 @@ export class Player extends THREE.Group {
         // });
     }
 
-    private drawWeightsGraph(pos: THREE.Vector2Like, weights: AnimationWeights[]) {
+    private drawWeightsGraph(pos: THREE.Vector2Like, weights: AnimationWeights[], visData: AnimationWeights[]) {
         const { width: canvasWidth, height: canvasHeight } = this.canvas2D;
 
         const scaleFactor = 0.8;
@@ -348,7 +348,7 @@ export class Player extends THREE.Group {
 
         // Draw the blend triangle
         this.canvasCtx2D.beginPath();
-        const anim0 = this.anims.find(a => a.name === weights[0].name)!;
+        const anim0 = this.anims.find(a => a.name === visData[0].name)!;
         const anim0Pos = { x: anim0.position.x, y: anim0.position.y };
         anim0Pos.x *= -scaleFactor;
         anim0Pos.y *= -scaleFactor;
@@ -358,7 +358,7 @@ export class Player extends THREE.Group {
         this.canvasCtx2D.beginPath();
         this.canvasCtx2D.moveTo(anim0Pos.x * canvasWidth, anim0Pos.y * canvasHeight);
         for (let i = 1; i < 3; i++) {
-            const anim = this.anims.find(a => a.name === weights[i].name)!;
+            const anim = this.anims.find(a => a.name === visData[i].name)!;
             const animPos = { x: anim.position.x, y: anim.position.y };
             animPos.x *= -scaleFactor;
             animPos.y *= -scaleFactor;

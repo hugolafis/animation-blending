@@ -85,7 +85,7 @@ export class BlendSpace2D {
      *
      * @param p Should have a maximum length of 1, and scale from 0 - 1
      */
-    update(p: THREE.Vector2Like): AnimationWeights[] {
+    update(p: THREE.Vector2Like): [AnimationWeights[], AnimationWeights[]] {
         const animationWeights: AnimationWeights[] = [];
 
         // TODO - prevent degenerate triangles!
@@ -109,7 +109,23 @@ export class BlendSpace2D {
 
         const v1 = this.animations.get(lengths[0].id)!;
         const v2 = this.animations.get(lengths[1].id)!;
-        const v3 = this.animations.get(lengths[2].id)!;
+        let v3: BlendedAnimation | undefined = undefined;
+        for (let i = 2; i < lengths.length; i++) {
+            const anim = this.animations.get(lengths[i].id)!;
+
+            // If the X and Y is _not_ same as the other two - accept it, otherwise it's degenerate
+            if (
+                anim.position.x !== (v1.position.x || v2.position.x) &&
+                anim.position.y !== (v1.position.y || v2.position.y)
+            ) {
+                v3 = anim;
+                break;
+            }
+        }
+
+        if (!v3) {
+            throw new Error('Invalid Blend Space!');
+        }
 
         // Barycentric center calcs
         // prettier-ignore
@@ -156,17 +172,28 @@ export class BlendSpace2D {
         });
 
         // Return a sorted list (by lengths, not weights)
-        animationWeights.sort((a, b) => {
-            const index1 = lengths.findIndex(l => l.id === a.name);
-            const index2 = lengths.findIndex(l => l.id === b.name);
+        // animationWeights.sort((a, b) => {
+        //     const index1 = lengths.findIndex(l => l.id === a.name);
+        //     const index2 = lengths.findIndex(l => l.id === b.name);
 
-            return index1 - index2;
+        //     return index1 - index2;
+        // });
+
+        // Sort by weights
+        animationWeights.sort((a, b) => {
+            return b.weight - a.weight;
         });
 
         // console.log('\n\n\n');
         // console.log(W1, W2, W3);
         // console.log(W1 + W2 + W3);
 
-        return animationWeights;
+        const visData = [
+            animationWeights.find(w => w.name === v1.name)!,
+            animationWeights.find(w => w.name === v2.name)!,
+            animationWeights.find(w => w.name === v3.name)!,
+        ];
+
+        return [animationWeights, visData];
     }
 }
