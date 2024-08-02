@@ -210,6 +210,7 @@ export class Player extends THREE.Group {
 
         const weights = this.animationBlend.update({ x: scaledDirection.x, y: scaledDirection.z });
         const priorityAnim = this._animations.get(weights[0].name)!;
+        priorityAnim.weight = weights[0].weight;
         priorityAnim.setEffectiveTimeScale(1 * Math.sign(priorityAnim.timeScale));
         const priorityClipDuration = priorityAnim.getClip().duration;
 
@@ -227,7 +228,7 @@ export class Player extends THREE.Group {
 
         // Draw the graph
 
-        this.drawWeightsGraph(weights);
+        this.drawWeightsGraph({ x: scaledDirection.x, y: scaledDirection.z }, weights);
 
         // const idle = this._animations.get('idle')!;
 
@@ -305,20 +306,78 @@ export class Player extends THREE.Group {
         // });
     }
 
-    private drawWeightsGraph(weights: AnimationWeights[]) {
+    private drawWeightsGraph(pos: THREE.Vector2Like, weights: AnimationWeights[]) {
         const { width: canvasWidth, height: canvasHeight } = this.canvas2D;
+
+        const scaleFactor = 0.8;
 
         this.canvasCtx2D.clearRect(0, 0, canvasWidth, canvasHeight);
 
         // Draw the initial graph
+        for (let x = 1; x < 10; x++) {
+            const xCoord = (canvasWidth / 10) * x;
+            this.canvasCtx2D.beginPath();
+            this.canvasCtx2D.moveTo(xCoord, 0);
+            this.canvasCtx2D.lineTo(xCoord, canvasHeight);
+            this.canvasCtx2D.strokeStyle = 'rgb(255, 255, 255, 0.1)';
+            this.canvasCtx2D.stroke();
+        }
+
+        for (let y = 1; y < 10; y++) {
+            const yCoord = (canvasHeight / 10) * y;
+            this.canvasCtx2D.beginPath();
+            this.canvasCtx2D.moveTo(0, yCoord);
+            this.canvasCtx2D.lineTo(canvasWidth, yCoord);
+            this.canvasCtx2D.strokeStyle = 'rgb(255, 255, 255, 0.1)';
+            this.canvasCtx2D.stroke();
+        }
+
+        this.canvasCtx2D.beginPath();
+        this.canvasCtx2D.ellipse(
+            canvasWidth * 0.5,
+            canvasHeight * 0.5,
+            canvasWidth * 0.5 * scaleFactor,
+            canvasHeight * 0.5 * scaleFactor,
+            0,
+            0,
+            Math.PI * 2,
+            false
+        );
+        this.canvasCtx2D.strokeStyle = 'rgb(255, 255, 255, 0.2)';
+        this.canvasCtx2D.stroke();
+
+        // Draw the blend triangle
+        this.canvasCtx2D.beginPath();
+        const anim0 = this.anims.find(a => a.name === weights[0].name)!;
+        const anim0Pos = { x: anim0.position.x, y: anim0.position.y };
+        anim0Pos.x *= -scaleFactor;
+        anim0Pos.y *= -scaleFactor;
+        anim0Pos.x = anim0Pos.x * 0.5 + 0.5;
+        anim0Pos.y = anim0Pos.y * 0.5 + 0.5;
+
+        this.canvasCtx2D.beginPath();
+        this.canvasCtx2D.moveTo(anim0Pos.x * canvasWidth, anim0Pos.y * canvasHeight);
+        for (let i = 1; i < 3; i++) {
+            const anim = this.anims.find(a => a.name === weights[i].name)!;
+            const animPos = { x: anim.position.x, y: anim.position.y };
+            animPos.x *= -scaleFactor;
+            animPos.y *= -scaleFactor;
+            animPos.x = animPos.x * 0.5 + 0.5;
+            animPos.y = animPos.y * 0.5 + 0.5;
+
+            this.canvasCtx2D.lineTo(animPos.x * canvasWidth, animPos.y * canvasHeight);
+        }
+        this.canvasCtx2D.lineTo(anim0Pos.x * canvasWidth, anim0Pos.y * canvasHeight);
+        this.canvasCtx2D.strokeStyle = 'rgb(255, 100, 100)';
+        this.canvasCtx2D.stroke();
 
         this.canvasCtx2D.textAlign = 'center';
         this.anims.forEach(anim => {
             const normalisedCoords = { x: anim.position.x, y: anim.position.y };
 
             // Invert these coords and normalise to 0-1
-            normalisedCoords.x *= -0.75;
-            normalisedCoords.y *= -0.75;
+            normalisedCoords.x *= -scaleFactor;
+            normalisedCoords.y *= -scaleFactor;
             normalisedCoords.x = normalisedCoords.x * 0.5 + 0.5;
             normalisedCoords.y = normalisedCoords.y * 0.5 + 0.5;
 
@@ -356,8 +415,29 @@ export class Player extends THREE.Group {
             this.canvasCtx2D.fillText(
                 anim.name,
                 normalisedCoords.x * canvasWidth,
-                normalisedCoords.y * canvasHeight + 50
+                normalisedCoords.y * canvasHeight + 40
             );
         });
+
+        // Draw the target
+        const normalisedPos = { x: pos.x, y: pos.y };
+        normalisedPos.x *= -scaleFactor;
+        normalisedPos.y *= -scaleFactor;
+        normalisedPos.x = normalisedPos.x * 0.5 + 0.5;
+        normalisedPos.y = normalisedPos.y * 0.5 + 0.5;
+
+        this.canvasCtx2D.beginPath();
+        this.canvasCtx2D.ellipse(
+            normalisedPos.x * canvasWidth,
+            normalisedPos.y * canvasHeight,
+            5,
+            5,
+            0,
+            0,
+            2 * Math.PI,
+            false
+        );
+        this.canvasCtx2D.fillStyle = `rgba(255, 90, 50, 0.75)`;
+        this.canvasCtx2D.fill();
     }
 }

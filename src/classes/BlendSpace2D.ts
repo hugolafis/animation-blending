@@ -88,6 +88,7 @@ export class BlendSpace2D {
     update(p: THREE.Vector2Like): AnimationWeights[] {
         const animationWeights: AnimationWeights[] = [];
 
+        // TODO - prevent degenerate triangles!
         // Find the closest three points to the direction
         const lengths: { id: string; distance: number }[] = [];
         this.animations.forEach((anim, id) => {
@@ -102,7 +103,9 @@ export class BlendSpace2D {
             lengths.push({ id, distance: length });
         });
 
-        lengths.sort((a, b) => a.distance - b.distance);
+        lengths.sort((a, b) => {
+            return a.distance - b.distance;
+        });
 
         const v1 = this.animations.get(lengths[0].id)!;
         const v2 = this.animations.get(lengths[1].id)!;
@@ -152,8 +155,13 @@ export class BlendSpace2D {
             }
         });
 
-        // Return a sorted list
-        animationWeights.sort((a, b) => a.weight - b.weight);
+        // Return a sorted list (by lengths, not weights)
+        animationWeights.sort((a, b) => {
+            const index1 = lengths.findIndex(l => l.id === a.name);
+            const index2 = lengths.findIndex(l => l.id === b.name);
+
+            return index1 - index2;
+        });
 
         // console.log('\n\n\n');
         // console.log(W1, W2, W3);
